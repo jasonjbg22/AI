@@ -21,36 +21,37 @@ os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(HEADS_DIR, exist_ok=True)
 
-def get_target_dir(folder_type):
-    if folder_type == 'heads': return HEADS_DIR
-    if folder_type == 'input': return INPUT_DIR
-    return OUTPUT_DIR
-
 @app.route('/list_outputs', methods=['GET'])
 def list_out():
     try:
-        folder_type = request.args.get('type', 'output')
-        target_dir = get_target_dir(folder_type)
+        folder_type = request.args.get("type", "output")
+        target_dir = INPUT_DIR if folder_type == "input" else OUTPUT_DIR
         
-        if not os.path.exists(target_dir):
-            return jsonify([])
-
-        # Gather files
         files = []
-        for f in os.listdir(target_dir):
-            # Filter out the 'heads' folder if listing generic inputs
-            if folder_type == 'input' and f == 'heads':
-                continue
-                
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                files.append(f)
+        if os.path.exists(target_dir):
+            for root, _, filenames in os.walk(target_dir):
+                for filename in filenames:
+                    # Ignore hidden/system files
+                    if filename.startswith('.'): continue
+                    
+                    # Only grab image files
+                    if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                        continue
 
+                    # Create a clean relative path (e.g., 'heads/myface.png')
+                    rel_dir = os.path.relpath(root, target_dir)
+                    if rel_dir == ".":
+                        files.append(filename)
+                    else:
+                        # Force forward slashes so the frontend Javascript doesn't break
+                        files.append(f"{rel_dir}/{filename}".replace("\\", "/"))
+        
         # Sort by newest first
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(target_dir, x)), reverse=True)
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(target_dir, os.path.normpath(x))), reverse=True)
         return jsonify(files)
     except Exception as e:
         print(f"Error listing {folder_type}: {e}")
-        return jsonify([]) # Return empty list on error instead of 500
+        return jsonify([])
 
 @app.route('/fetch_image', methods=['GET'])
 def fetch_img():
@@ -59,9 +60,13 @@ def fetch_img():
     
     if not filename: return "Missing filename", 400
     
-    target_dir = get_target_dir(folder_type)
-    path = os.path.join(target_dir, filename)
+    target_dir = INPUT_DIR if folder_type == "input" else OUTPUT_DIR
+    path = os.path.normpath(os.path.join(target_dir, filename))
     
+    # Security check to prevent directory traversal
+    if not path.startswith(os.path.abspath(target_dir)):
+        return "Invalid path", 403
+
     if os.path.exists(path):
         try:
             with open(path, "rb") as f:
@@ -78,17 +83,25 @@ def fetch_img():
 @app.route('/delete_image', methods=['POST', 'OPTIONS'])
 def delete_img():
     if request.method == 'OPTIONS': return jsonify({"status": "ok"})
+    
     data = request.json
-    filename = data.get('filename')
-    folder_type = data.get('type', 'output')
+    filename = data.get("filename")
+    folder_type = data.get("type", "output")
     
-    target_dir = get_target_dir(folder_type)
-    path = os.path.join(target_dir, filename)
+    target_dir = INPUT_DIR if folder_type == "input" else OUTPUT_DIR
     
-    if os.path.exists(path):
-        os.remove(path)
-        return jsonify({"status": "deleted"})
-    return jsonify({"error": "Not found"}), 404
+    # os.path.normpath ensures 'heads/image.png' resolves correctly on Windows
+    file_path = os.path.normpath(os.path.join(target_dir, filename))
+    
+    # Security check to prevent directory traversal out of target_dir
+    if not file_path.startswith(os.path.abspath(target_dir)):
+        return jsonify({"status": "error", "message": "Invalid path"}), 403
+        
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return jsonify({"status": "success", "message": "deleted"})
+        
+    return jsonify({"status": "error", "message": "File not found"}), 404
 
 @app.route('/purge_all', methods=['POST', 'OPTIONS'])
 def purge_all():
@@ -109,7 +122,8 @@ def purge_all():
     # 2. Purge Inputs (BUT SAVE HEADS)
     if os.path.exists(INPUT_DIR):
         for f in os.listdir(INPUT_DIR):
-            if f == 'heads': continue # SKIP HEADS
+            # Skip the heads directory itself
+            if f.lower() == 'heads': continue
             
             p = os.path.join(INPUT_DIR, f)
             try:

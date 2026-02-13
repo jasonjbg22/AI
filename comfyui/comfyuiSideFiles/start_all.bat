@@ -7,8 +7,8 @@ echo Checking dependencies...
 "%PYTHON_EXECUTABLE%" -m pip install flask flask-cors --quiet
 
   2. Launch Sidecar
-::echo Starting Maintenance Sidecar (Port 8189)...
-::start /min "" "%PYTHON_EXECUTABLE%" maintenance.py
+echo Starting Maintenance Sidecar (Port 8189)...
+start /min "" "%PYTHON_EXECUTABLE%" maintenance.py
 
 
 :: 4. Launch ComfyUI with AGGRESSIVE network flags
