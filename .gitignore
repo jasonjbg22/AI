@@ -2,13 +2,11 @@ backup/
 _ai_version_log.txt
 _ai_context.txt
 
-# Exclude gallery and all its subfolders/contents
-Gallery/
-gallery/
-**/Gallery/
-**/gallery/
+# BLOCK ONLY THE HEAVY DATA
+Gallery/my_image_db/
+gallery/my_image_db/
 
-# Specific Large Extensions
+# GLOBAL BINARY SAFETY
 *.sqlite3
 *.bin
 *.pkl
