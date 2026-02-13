@@ -19,6 +19,7 @@ COMFY_HISTORY = f"{BASE_COMFY}/history"
 MAINT_LIST = f"{BASE_MAINT}/list_outputs"
 MAINT_FETCH = f"{BASE_MAINT}/fetch_image"
 MAINT_DELETE = f"{BASE_MAINT}/delete_image"
+MAINT_COPY = f"{BASE_MAINT}/copy_to_input"  # <--- NEW ROUTE ADDED HERE
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -212,6 +213,23 @@ def gallery_image():
         else:
             return jsonify({"status": "error"}), 404
     except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ==========================================
+#  COPY & DELETE
+# ==========================================
+@app.route("/api/flux/copy", methods=["POST"])
+def copy_file_to_input():
+    try:
+        filename = request.json.get("filename")
+        # Tell the sidecar maint.py to execute the double-copy logic
+        r = requests.post(MAINT_COPY, json={"filename": filename}, timeout=10)
+        
+        if r.status_code != 200:
+            return jsonify({"status": "error", "message": "Failed to copy on maint server"}), 500
+        return jsonify({"status": "success"})
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/flux/delete", methods=["POST"])
