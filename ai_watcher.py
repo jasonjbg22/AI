@@ -7,14 +7,14 @@ CONTEXT_FILE = os.path.join(PROJECT_ROOT, "_ai_context.txt")
 GITIGNORE_FILE = os.path.join(PROJECT_ROOT, ".gitignore")
 
 # LIMITS
-MAX_FILE_SIZE = 100 * 1024  # 100 KB limit per file
+MAX_FILE_SIZE = 100 * 1024  # 100 KB limit per file (prevents massive context)
 
 # IGNORE SETTINGS
 IGNORE_DIRS = {
     ".git", ".idea", "__pycache__", "node_modules", "backup", "venv", "env", 
     "bin", "obj", "lib", ".vscode", "dist", "build", "coverage", ".next", 
     "target", "out" 
-    # REMOVED: "Gallery", "gallery" to allow the AI to see your scripts
+    # REMOVED "Gallery" and "gallery" to allow AI to help with scripts in those folders
 }
 
 IGNORE_EXTS = {
@@ -28,5 +28,5 @@ IGNORE_EXTS = {
     ".zip", ".tar", ".gz", ".7z", ".rar", ".jar", ".war",
     # Misc
     ".bak", ".log", ".map", ".lock", ".pdf", ".db", ".sqlite", ".sqlite3",
-    ".arw"
+    ".arw"  # Added RAW photo extension
 }
