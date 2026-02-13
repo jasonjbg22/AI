@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Thumbs Gallery</title>
+    <style>
+        :root { 
+            --bg: #121212; 
+            --card-bg: #1e1e1e; 
+            --text: #e0e0e0; 
+            --accent: #00e5ff; 
+            --accent-hover: #00b3cc;
+        }
+        
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+        }
+        
+        header { 
+            padding: 15px 30px; 
+            background: rgba(30, 30, 30, 0.95); 
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        
+        header h1 { margin: 0; font-size: 1.5rem; color: var(--text); letter-spacing: 1px;}
+        header h1 span { color: var(--accent); }
+        
+        .stats { font-size: 0.95rem; color: #aaa; background: #000; padding: 5px 15px; border-radius: 20px;}
+        
+        .refresh-btn { 
+            background: var(--accent); 
+            color: #000; 
+            border: none; 
+            padding: 8px 18px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: all 0.2s;
+        }
+        .refresh-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+        
+        .gallery { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 16px; 
+            padding: 24px; 
+        }
+        
+        .media-card { 
+            background: var(--card-bg); 
+            border-radius: 8px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            position: relative; 
+            aspect-ratio: 1 / 1; 
+            cursor: pointer;
+        }
+        
+        .media-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 8px 15px rgba(0, 229, 255, 0.2); 
+        }
+        
+        .media-item { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block; 
+        }
+        
+        .video-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+        
+        .loading { 
+            text-align: center; 
+            padding: 30px; 
+            font-size: 1.2rem; 
+            color: var(--accent); 
+            display: none; 
+        }
+
+        /* Modal Overlay */
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.95); 
+            z-index: 1000; 
+            justify-content: center; 
+            align-items: center; 
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content { 
+            max-width: 95%; 
+            max-height: 95%; 
+            object-fit: contain; 
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        
+        .close { 
+            position: absolute; 
+            top: 20px; 
+            right: 35px; 
+            color: #f1f1f1; 
+            font-size: 40px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: color 0.2s;
+        }
+        .close:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Neural <span>Thumbs</span></h1>
+        <div class="stats">Loaded: <span id="count" style="color:#fff">0</span> / <span id="total" style="color:var(--accent)">0</span></div>
+        <button class="refresh-btn" onclick="refreshGallery()">Refresh DB</button>
+    </header>
+    
+    <div class="gallery" id="gallery"></div>
+    <div class="loading" id="loading">Loading assets...</div>
+
+    <div class="modal" id="modal" onclick="closeModal(event)">
+        <span class="close" onclick="closeModal(event)">&times;</span>
+        <div id="modal-container" style="display:flex; justify-content:center; align-items:center; width:100%; height:100%;"></div>
+    </div>
+
+    <script>
+        let page = 0;
+        let loading = false;
+        let hasMore = true;
+        const gallery = document.getElementById('gallery');
+        const loadingEl = document.getElementById('loading');
+
+        async function loadMore() {
+            if (loading || !hasMore) return;
+            loading = true;
+            loadingEl.style.display = 'block';
+
+            try {
+                const res = await fetch(`/api/thumbs?page=${page}`);
+                const data = await res.json();
+                
+                document.getElementById('total').innerText = data.total.toLocaleString();
+                
+                data.files.forEach(file => {
+                    const card = document.createElement('div');
+                    card.className = 'media-card';
+                    const url = `/file/${encodeURIComponent(file)}`;
+                    
+                    const isVideo = file.match(/\.(mp4|webm)$/i);
+                    let mediaEl;
+                    
+                    if (isVideo) {
+                        mediaEl = `
+                            <div class="video-indicator">▶ VIDEO</div>
+                            <video class="media-item" src="${url}" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+                        `;
+                    } else {
+                        mediaEl = `<img class="media-item" src="${url}" loading="lazy" alt="${file}">`;
+                    }
+                    
+                    card.innerHTML = mediaEl;
+                    card.onclick = () => openModal(url, isVideo);
+                    gallery.appendChild(card);
+                });
+
+                document.getElementById('count').innerText = gallery.children.length.toLocaleString();
+                hasMore = data.has_more;
+                page++;
+            } catch (e) {
+                console.error("Failed to load media", e);
+                loadingEl.innerText = "Error loading media. Check server console.";
+            } finally {
+                loading = false;
+                if (hasMore) {
+                    loadingEl.style.display = 'none';
+                } else {
+                    loadingEl.innerText = "End of Gallery";
+                    loadingEl.style.display = 'block';
+                }
+            }
+        }
+
+        function openModal(url, isVideo) {
+            const container = document.getElementById('modal-container');
+            if (isVideo) {
+                container.innerHTML = `<video class="modal-content" src="${url}" controls autoplay loop></video>`;
+            } else {
+                container.innerHTML = `<img class="modal-content" src="${url}">`;
+            }
+            document.getElementById('modal').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeModal(event) {
+            // Only close if clicking the background or the close button, not the media itself
+            if(event.target.className === 'modal' || event.target.className === 'close') {
+                document.getElementById('modal').style.display = 'none';
+                document.getElementById('modal-container').innerHTML = '';
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+        }
+
+        async function refreshGallery() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.innerText = "Refreshing...";
+            await fetch('/api/refresh');
+            gallery.innerHTML = '';
+            page = 0;
+            hasMore = true;
+            document.getElementById('count').innerText = '0';
+            await loadMore();
+            btn.innerText = "Refresh DB";
+        }
+
+        // Infinite Scroll Observer
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                loadMore();
+            }
+        }, { rootMargin: '300px' });
+
+        observer.observe(loadingEl);
+        
+        // Initial load
+        loadMore();
+    </script>
+</body>
+</html>
