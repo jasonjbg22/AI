@@ -1,0 +1,1 @@
+If a prompt starts exactly with d1: or aid: (no leading whitespace), respond with exactly one fenced code block using ```deploy and no other text.

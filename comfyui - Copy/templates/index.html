@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux Studio Ultimate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Progress Bar Animation */
+        @keyframes progress-stripe {
+            0% { background-position: 1rem 0; }
+            100% { background-position: 0 0; }
+        }
+        .animate-stripe {
+            background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
+            background-size: 1rem 1rem;
+            animation: progress-stripe 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen font-sans selection:bg-purple-500 selection:text-white">
+
+<div class="max-w-6xl mx-auto p-4 md:p-6 pb-20">
+
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800 sticky top-4 z-40 backdrop-blur-xl">
+        <h1 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Flux Studio</h1>
+        
+        <div class="flex bg-zinc-950 p-1.5 rounded-xl border border-zinc-800 shadow-inner">
+            <button onclick="switchTab('gen')" id="nav-gen" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all">Generator</button>
+            <button onclick="switchTab('swap')" id="nav-swap" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all">Faceswap</button>
+            <button onclick="switchTab('gal')" id="nav-gal" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all">Gallery</button>
+        </div>
+    </div>
+
+    <div id="global-progress" class="hidden mb-6 bg-zinc-900 rounded-full h-4 overflow-hidden border border-zinc-800 relative">
+        <div id="progress-fill" class="h-full bg-gradient-to-r from-purple-600 to-pink-600 animate-stripe transition-all duration-300 ease-out" style="width: 0%"></div>
+        <div id="progress-text" class="absolute inset-0 flex items-center justify-center text-[10px] font-bold tracking-widest uppercase text-white drop-shadow-md">Processing...</div>
+    </div>
+
+    <div id="view-gen" class="fade-in hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                    <label class="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-wider">Source Image</label>
+                    <div onclick="document.getElementById('gen-upload').click()" class="cursor-pointer group relative aspect-square bg-black rounded-lg border-2 border-dashed border-zinc-700 hover:border-purple-500 hover:bg-zinc-900 transition-all flex flex-col items-center justify-center overflow-hidden">
+                        <img id="gen-preview" class="hidden w-full h-full object-contain">
+                        <div id="gen-placeholder" class="text-center p-4">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-zinc-500 group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="text-xs text-zinc-500">Upload Source</span>
+                        </div>
+                    </div>
+                    <input type="file" id="gen-upload" class="hidden" accept="image/*" onchange="handleUpload(this, 'gen')">
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 flex flex-col gap-6">
+                <div class="relative flex-grow">
+                    <textarea id="gen-prompt" class="w-full h-full min-h-[200px] bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-zinc-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none" placeholder="Describe your image..."></textarea>
+                    <div class="absolute bottom-4 right-4 text-xs text-zinc-500">Ctrl+Enter to Run</div>
+                </div>
+                
+                <button onclick="runGen()" id="btn-gen-run" class="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-purple-900/30 transition-transform active:scale-[0.99] flex justify-center items-center gap-2">
+                    <span>Generate Flux</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-swap" class="fade-in hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div class="flex justify-between mb-3">
+                    <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Body (Base)</label>
+                    <button onclick="switchTab('gal')" class="text-xs text-purple-400 hover:text-purple-300">Select from Gallery</button>
+                </div>
+                <div onclick="document.getElementById('swap-body-upload').click()" class="cursor-pointer relative aspect-[3/4] bg-black rounded-lg border-2 border-dashed border-zinc-700 hover:border-blue-500 hover:bg-zinc-900 transition-all flex flex-col items-center justify-center overflow-hidden">
+                    <img id="swap-body-preview" class="hidden w-full h-full object-contain">
+                    <div id="swap-body-placeholder" class="text-center p-4">
+                        <span class="text-sm font-medium text-zinc-500">Upload Body</span>
+                    </div>
+                </div>
+                <input type="file" id="swap-body-upload" class="hidden" accept="image/*" onchange="handleUpload(this, 'swap-body')">
+            </div>
+
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div class="flex justify-between mb-3">
+                    <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Head (Identity)</label>
+                    <button onclick="switchTab('gal', 'heads')" class="text-xs text-purple-400 hover:text-purple-300">Select from Heads</button>
+                </div>
+                <div onclick="document.getElementById('swap-head-upload').click()" class="cursor-pointer relative aspect-[3/4] bg-black rounded-lg border-2 border-dashed border-zinc-700 hover:border-green-500 hover:bg-zinc-900 transition-all flex flex-col items-center justify-center overflow-hidden">
+                    <img id="swap-head-preview" class="hidden w-full h-full object-contain">
+                    <div id="swap-head-placeholder" class="text-center p-4">
+                        <span class="text-sm font-medium text-zinc-500">Upload Head</span>
+                    </div>
+                </div>
+                <input type="file" id="swap-head-upload" class="hidden" accept="image/*" onchange="handleUpload(this, 'swap-head')">
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <details class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                <summary class="p-4 cursor-pointer text-sm font-medium text-zinc-400 hover:text-white select-none">Advanced Prompt Settings</summary>
+                <textarea id="swap-prompt" class="w-full h-48 bg-black p-4 text-sm text-zinc-300 focus:outline-none resize-y"></textarea>
+            </details>
+            
+            <button onclick="runSwap()" id="btn-swap-run" class="w-full py-4 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-500 hover:to-green-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-900/30 transition-transform active:scale-[0.99] flex justify-center items-center gap-2">
+                <span>Run Faceswap</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="view-gal" class="fade-in hidden space-y-8">
+        
+        <div class="flex justify-center">
+            <div class="inline-flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+                <button onclick="loadGallery('output')" id="gal-filter-out" class="px-4 py-1.5 rounded text-sm font-medium">Generated Outputs</button>
+                <button onclick="loadGallery('heads')" id="gal-filter-head" class="px-4 py-1.5 rounded text-sm font-medium">Heads Library</button>
+            </div>
+        </div>
+
+        <div id="head-uploader" class="hidden bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-white">Heads Library</h3>
+                    <p class="text-xs text-zinc-500">Store reference faces here.</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('lib-head-upload').click()" class="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                + Upload New Head
+            </button>
+            <input type="file" id="lib-head-upload" class="hidden" accept="image/*" onchange="handleUpload(this, 'lib-head')">
+        </div>
+
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </div>
+
+    <div id="result-overlay" class="fixed inset-0 bg-black/95 z-[100] hidden flex flex-col items-center justify-center p-4">
+        <button onclick="closeResult()" class="absolute top-4 right-4 text-zinc-400 hover:text-white p-2">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div class="max-w-6xl max-h-[90vh] w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-zinc-800">
+            <div id="result-container" class="flex-grow flex items-center justify-center bg-zinc-950 p-4 overflow-auto">
+            </div>
+            <div class="p-4 bg-zinc-900 border-t border-zinc-800 flex justify-end gap-3">
+                <button onclick="useResultAs('body')" class="px-4 py-2 bg-zinc-800 rounded-lg text-sm hover:bg-zinc-700 font-medium">Use as Body</button>
+                <button onclick="closeResult()" class="px-6 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500 font-bold shadow-lg shadow-purple-900/20">Done</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // === CONFIG & STATE ===
+    const DEFAULT_SWAP_PROMPT = `head_swap: Use image 1 as the base image, preserving its environment, background, camera perspective, framing, exposure, contrast, and lighting. Remove the head from image 1 and seamlessly replace it with the head from image 2.
+Match the original head size, face-to-body ratio, neck thickness, shoulder alignment, and camera distance so proportions remain natural and unchanged.
+Adapt the inserted head to the lighting of image 1 by matching light direction, intensity, softness, color temperature, shadows, and highlights, with no independent relighting.
+Preserve the identity of image 2, including hair texture, eye color, nose structure, facial proportions, and skin details.
+Match the pose and expression from image 1, including head tilt, rotation, eye direction, gaze, micro-expressions, and lip position.
+Ensure seamless neck and jaw blending, consistent skin tone, realistic shadow contact, natural skin texture, and uniform sharpness.
+Photorealistic, high quality, sharp details, 4K.`;
+
+    document.getElementById('swap-prompt').value = DEFAULT_SWAP_PROMPT;
+
+    let state = {
+        gen: { image: null },
+        swap: { body: null, head: null, headType: 'upload' }, 
+        galleryType: 'output',
+        progressInterval: null
+    };
+
+    // === TABS ===
+    function switchTab(tab, subContext = null) {
+        ['gen','swap','gal'].forEach(t => {
+            document.getElementById(`view-${t}`).classList.add('hidden');
+            const btn = document.getElementById(`nav-${t}`);
+            btn.className = `px-5 py-2 rounded-lg text-sm font-semibold transition-all ${t===tab ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`;
+        });
+        document.getElementById(`view-${tab}`).classList.remove('hidden');
+
+        if (tab === 'gal') {
+            if (subContext === 'heads') loadGallery('heads');
+            else loadGallery('output');
+        }
+    }
+
+    // === UPLOADS ===
+    async function handleUpload(input, type) {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        
+        const fd = new FormData();
+        fd.append("image", file);
+        
+        // If uploading to library, add subfolder
+        if (type === 'lib-head') {
+            fd.append("subfolder", "heads");
+        }
+
+        try {
+            const r = await fetch("/api/upload", { method: "POST", body: fd });
+            const d = await r.json();
+
+            if (d.status === "success") {
+                // UI PREVIEWS
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (type === 'gen') {
+                        setPreview('gen', e.target.result);
+                        state.gen.image = d.filename;
+                    }
+                    else if (type === 'swap-body') {
+                        setPreview('swap-body', e.target.result);
+                        state.swap.body = d.filename;
+                    }
+                    else if (type === 'swap-head') {
+                        setPreview('swap-head', e.target.result);
+                        state.swap.head = d.filename;
+                        state.swap.headType = 'upload';
+                    }
+                    else if (type === 'lib-head') {
+                        // Refresh library and Alert success
+                        loadGallery('heads'); 
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert("Upload failed: " + d.message);
+            }
+        } catch(e) { alert("Upload failed"); }
+        
+        // Reset input so same file can be selected again
+        input.value = '';
+    }
+
+    function setPreview(idPrefix, src) {
+        document.getElementById(`${idPrefix}-preview`).src = src;
+        document.getElementById(`${idPrefix}-preview`).classList.remove('hidden');
+        document.getElementById(`${idPrefix}-placeholder`).classList.add('hidden');
+    }
+
+    // === GENERATE ACTIONS ===
+    async function runGen() {
+        const btn = document.getElementById('btn-gen-run');
+        const prompt = document.getElementById('gen-prompt').value;
+        if(!prompt) return alert("Prompt required");
+
+        startProgress(btn);
+        try {
+            const r = await fetch("/api/flux/run", {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ prompt, image: state.gen.image })
+            });
+            const d = await r.json();
+            if(d.status === "queued") poll(d.prompt_id, btn);
+            else stopProgress(btn);
+        } catch(e) { stopProgress(btn); alert("Error starting generation"); }
+    }
+
+    async function runSwap() {
+        const btn = document.getElementById('btn-swap-run');
+        if(!state.swap.body || !state.swap.head) return alert("Body and Head images required");
+        
+        startProgress(btn);
+        try {
+            const r = await fetch("/api/swap/run", {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ 
+                    prompt: document.getElementById('swap-prompt').value,
+                    body_image: state.swap.body,
+                    head_image: state.swap.head,
+                    head_type: state.swap.headType
+                })
+            });
+            const d = await r.json();
+            if(d.status === "queued") poll(d.prompt_id, btn);
+            else stopProgress(btn);
+        } catch(e) { stopProgress(btn); alert("Error starting faceswap"); }
+    }
+
+    // === PROGRESS UI ===
+    function startProgress(btn) {
+        // Disable button
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        
+        // Show Bar
+        const bar = document.getElementById('global-progress');
+        const fill = document.getElementById('progress-fill');
+        bar.classList.remove('hidden');
+        fill.style.width = '0%';
+        
+        // Simulated progress logic (fast start, slow finish)
+        let w = 0;
+        state.progressInterval = setInterval(() => {
+            if (w < 90) {
+                // Slower increment as it gets higher
+                w += (90 - w) * 0.05; 
+                fill.style.width = `${w}%`;
+            }
+        }, 500);
+    }
+
+    function stopProgress(btn) {
+        // Stop simulation
+        if(state.progressInterval) clearInterval(state.progressInterval);
+        
+        // Finish bar
+        const fill = document.getElementById('progress-fill');
+        fill.style.width = '100%';
+        
+        // Reset UI after delay
+        setTimeout(() => {
+            document.getElementById('global-progress').classList.add('hidden');
+            fill.style.width = '0%';
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }, 500);
+    }
+
+    // === POLLING ===
+    async function poll(pid, btn) {
+        const int = setInterval(async () => {
+            try {
+                const r = await fetch(`/api/flux/result?prompt_id=${pid}`);
+                const d = await r.json();
+                
+                if(d.status === "complete") {
+                    clearInterval(int);
+                    stopProgress(btn);
+                    showResult(d.image_url);
+                }
+            } catch(e) { console.error("Poll error", e); }
+        }, 2000);
+    }
+
+    // === RESULT HANDLING ===
+    let lastResultUrl = null;
+    function showResult(url) {
+        lastResultUrl = url;
+        const fresh = `${url}&t=${Date.now()}`;
+        
+        // Setup Overlay
+        const overlay = document.getElementById('result-overlay');
+        const container = document.getElementById('result-container');
+        
+        container.innerHTML = `<img src="${fresh}" class="max-w-full max-h-full rounded-lg shadow-2xl animate-in fade-in zoom-in duration-300">`;
+        overlay.classList.remove('hidden');
+    }
+
+    function closeResult() {
+        document.getElementById('result-overlay').classList.add('hidden');
+        loadGallery('output'); // Auto refresh gallery
+    }
+
+    function useResultAs(target) {
+        const urlParams = new URLSearchParams(lastResultUrl.split('?')[1]);
+        const filename = urlParams.get('filename');
+
+        if(target === 'body') {
+            state.swap.body = filename;
+            document.getElementById('swap-body-preview').src = lastResultUrl;
+            document.getElementById('swap-body-preview').classList.remove('hidden');
+            document.getElementById('swap-body-placeholder').classList.add('hidden');
+            switchTab('swap');
+        }
+        closeResult();
+    }
+
+    // === GALLERY LOGIC ===
+    async function loadGallery(type) {
+        state.galleryType = type;
+        
+        const btnOut = document.getElementById('gal-filter-out');
+        const btnHead = document.getElementById('gal-filter-head');
+        const uploader = document.getElementById('head-uploader');
+        
+        // Toggle styles
+        if (type === 'heads') {
+            btnHead.classList.replace('text-zinc-400', 'bg-zinc-700');
+            btnHead.classList.replace('hover:text-white', 'text-white');
+            btnOut.classList.replace('bg-zinc-700', 'text-zinc-400');
+            btnOut.classList.replace('text-white', 'hover:text-white');
+            uploader.classList.remove('hidden');
+        } else {
+            btnOut.classList.replace('text-zinc-400', 'bg-zinc-700');
+            btnOut.classList.replace('hover:text-white', 'text-white');
+            btnHead.classList.replace('bg-zinc-700', 'text-zinc-400');
+            btnHead.classList.replace('text-white', 'hover:text-white');
+            uploader.classList.add('hidden');
+        }
+
+        const grid = document.getElementById('gallery-grid');
+        grid.innerHTML = '<div class="col-span-full text-center text-zinc-600 py-10">Loading assets...</div>';
+
+        try {
+            const r = await fetch(`/api/flux/gallery?type=${type}`);
+            const d = await r.json();
+
+            grid.innerHTML = "";
+            if(d.status === "success" && d.images.length > 0) {
+                d.images.forEach(img => {
+                    const el = document.createElement('div');
+                    el.className = "group relative aspect-[2/3] bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-600 shadow-md transition-all";
+                    
+                    const imgEl = document.createElement('img');
+                    imgEl.className = "w-full h-full object-cover opacity-0 transition-opacity duration-300";
+                    imgEl.onload = () => imgEl.classList.remove('opacity-0');
+                    
+                    fetch(`/api/flux/image?filename=${img.filename}&type=${type}`)
+                        .then(res => res.json())
+                        .then(dat => { if(dat.data) imgEl.src = dat.data; });
+
+                    const overlay = document.createElement('div');
+                    overlay.className = "absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3";
+                    
+                    if (type === 'output') {
+                        overlay.append(
+                            actionBtn("Use as Gen Source", () => sendTo('gen', img.filename, imgEl.src)),
+                            actionBtn("Use as Body", () => sendTo('body', img.filename, imgEl.src))
+                        );
+                    } else {
+                        overlay.append(
+                            actionBtn("Use as Head", () => sendTo('head', img.filename, imgEl.src))
+                        );
+                    }
+
+                    const del = document.createElement('button');
+                    del.innerHTML = "×";
+                    del.className = "absolute top-1 right-1 w-6 h-6 bg-red-600/80 hover:bg-red-600 rounded text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity";
+                    del.onclick = (e) => { e.stopPropagation(); deleteImg(img.filename, type); };
+
+                    el.append(imgEl, overlay, del);
+                    grid.append(el);
+                });
+            } else {
+                 grid.innerHTML = '<div class="col-span-full text-center text-zinc-700 py-10">No images found.</div>';
+            }
+        } catch(e) {
+             grid.innerHTML = '<div class="col-span-full text-center text-red-500">Failed to load gallery</div>';
+        }
+    }
+
+    function actionBtn(text, onClick) {
+        const b = document.createElement('button');
+        b.className = "w-full py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-white font-medium border border-zinc-600";
+        b.innerText = text;
+        b.onclick = onClick;
+        return b;
+    }
+
+    function sendTo(target, filename, src) {
+        if (target === 'gen') {
+            state.gen.image = filename;
+            setPreview('gen', src);
+            switchTab('gen');
+        } else if (target === 'body') {
+            state.swap.body = filename;
+            setPreview('swap-body', src);
+            switchTab('swap');
+        } else if (target === 'head') {
+            state.swap.head = filename;
+            state.swap.headType = 'library';
+            setPreview('swap-head', src);
+            switchTab('swap');
+        }
+    }
+
+    function deleteImg(name, type) {
+        if(!confirm("Delete this image?")) return;
+        fetch("/api/flux/delete", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ filename: name, type: type })
+        }).then(() => loadGallery(type));
+    }
+
+    // === SHORTCUTS ===
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            // Check which view is active
+            if (!document.getElementById('view-gen').classList.contains('hidden')) {
+                e.preventDefault();
+                runGen();
+            } else if (!document.getElementById('view-swap').classList.contains('hidden')) {
+                e.preventDefault();
+                runSwap();
+            }
+        }
+    });
+
+    // Init
+    switchTab('gen');
+
+</script>
+</body>
+</html>

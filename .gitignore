@@ -1,0 +1,14 @@
+backup/
+_ai_version_log.txt
+_ai_context.txt
+
+# Exclude gallery and all its subfolders/contents
+Gallery/
+gallery/
+**/Gallery/
+**/gallery/
+
+# Specific Large Extensions
+*.sqlite3
+*.bin
+*.pkl
