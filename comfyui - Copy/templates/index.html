@@ -378,14 +378,20 @@ Photorealistic, high quality, sharp details, 4K.`;
         overlay.classList.remove('hidden');
     }
 
-    function closeResult() {
-        document.getElementById('result-overlay').classList.add('hidden');
-        loadGallery(state.galleryType);
-    }
-
-    function useResultAs(target) {
+    async function useResultAs(target) {
         const urlParams = new URLSearchParams(lastResultUrl.split('?')[1]);
         const filename = urlParams.get('filename');
+
+        // Trigger the network copy! (Generation results are always in outputs)
+        if (target === 'gen' || target === 'body') {
+            try {
+                await fetch("/api/flux/copy", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ filename: filename })
+                });
+            } catch(e) { console.error("Copy failed", e); }
+        }
 
         if(target === 'body') {
             state.swap.body = filename;
@@ -397,6 +403,11 @@ Photorealistic, high quality, sharp details, 4K.`;
             switchTab('gen');
         }
         closeResult();
+    }
+
+    function closeResult() {
+        document.getElementById('result-overlay').classList.add('hidden');
+        loadGallery(state.galleryType);
     }
 
     // === GALLERY LOGIC ===
@@ -484,7 +495,19 @@ Photorealistic, high quality, sharp details, 4K.`;
         return b;
     }
 
-    function sendTo(target, filename, src) {
+    async function sendTo(target, filename, src) {
+        // --- NEW: ONLY copy if the image is coming from the 'Outputs' tab ---
+        if ((target === 'gen' || target === 'body') && state.galleryType === 'output') {
+            try {
+                await fetch("/api/flux/copy", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ filename: filename })
+                });
+            } catch(e) { console.error("Copy failed", e); }
+        }
+
+        // Update the UI
         if (target === 'gen') {
             state.gen.image = filename;
             setPreview('gen', src);
